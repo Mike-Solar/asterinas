@@ -410,17 +410,19 @@ mod segment {
         let segment = options
             .alloc_segment_with(2, |_| MockFrameMeta { value: 42 })
             .expect("Failed to allocate segment");
-        let paddr = segment.paddr();
+
+        let second = segment.slice(&(PAGE_SIZE..2 * PAGE_SIZE));
 
         let mut iter = segment.into_iter();
-        drop(iter.next().expect("The segment is non-empty"));
+        let first = iter.next().expect("The segment is non-empty");
+
         // Dropping the iterator must release the frame it never yielded.
         drop(iter);
 
-        let new_segment = options
-            .alloc_segment(2)
-            .expect("Failed to allocate segment");
-        assert_eq!(new_segment.paddr(), paddr);
+        assert_eq!(first.reference_count(), 1);
+        let second = second.into_iter().next().unwrap();
+        assert_eq!(second.reference_count(), 1);
+        assert_eq!(second.meta().value, 42);
     }
 
     #[ktest]
